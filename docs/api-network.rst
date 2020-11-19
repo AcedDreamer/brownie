@@ -1460,6 +1460,95 @@ Internal Methods
         >>> e
         {}
 
+
+``brownie.network.gas``
+=======================
+
+The ``gas`` module contains gas strategy classes, as well as abstract base classes for buiding your own gas strategies.
+
+Gas Strategies
+--------------
+
+.. py:class:: brownie.network.gas.strategies.GasNowStrategy(speed="fast")
+
+    Gas strategy for determing a price using the `GasNow <https://www.gasnow.org/>`_ API.
+
+    * ``speed``: The gas price to use based on the API call. Options are rapid, fast, standard and slow.
+
+    .. code-block:: python
+
+        >>> from brownie.network.gas.strategies import GasNowStrategy
+        >>> gas_strategy = GasNowStrategy("fast")
+
+        >>> accounts[0].transfer(accounts[1], "1 ether", gas_price=gas_strategy)
+
+.. py:class:: brownie.network.gas.strategies.GasNowScalingStrategy(initial_speed="standard", max_speed="rapid", increment=1.125, block_duration=2)
+
+    Block based scaling gas strategy using the GasNow API.
+
+    * ``initial_speed``: The initial gas price to use when broadcasting the first transaction. Options are rapid, fast, standard and slow.
+    * ``max_speed``: The maximum gas price to use when replacing the transaction. Options are rapid, fast, standard and slow.
+    * ``increment``: A multiplier applied to the most recently used gas price in order to determine the new gas price. If the incremented value is less than or equal to the current ``max_speed`` rate, a new transaction is broadcasted. If the current rate for ``initial_speed`` is greater than the incremented rate, it is used instead.
+    * ``block_duration``: The number of blocks to wait between broadcasting new transactions.
+
+    .. code-block:: python
+
+        >>> from brownie.network.gas.strategies import GasNowScalingStrategy
+        >>> gas_strategy = GasNowScalingStrategy("standard", increment=1.125, block_duration=2)
+
+        >>> accounts[0].transfer(accounts[1], "1 ether", gas_price=gas_strategy)
+
+.. _api-network-gas-abc:
+
+Gas Strategy ABCs
+-----------------
+
+`Abstract base classes <https://docs.python.org/3/library/abc.html#module-abc>`_ for building your own gas strategies.
+
+Simple Strategies
+*****************
+
+.. py:class:: brownie.network.gas.bases.SimpleGasStrategy
+
+    Abstract base class for simple gas strategies.
+
+    Simple gas strategies are called once to provide a dynamically genreated gas price at the time a transaction is broadcasted. Transactions using simple gas strategies are not automatically rebroadcasted.
+
+Simple Strategy Abstract Methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To implement a simple gas strategy, subclass :func:`SimpleGasStrategy <brownie.network.gas.bases.SimpleGasStrategy>` and include the following method:
+
+.. py:method:: SimpleGasStrategy.get_gas_price(self) -> int:
+
+    Return the gas price for a transaction.
+
+Scaling Strategies
+******************
+
+.. py:class:: brownie.network.gas.bases.BlockGasStrategy(duration=2)
+
+    Abstract base class for block-based gas strategies.
+
+    Block gas strategies are called every ``duration`` blocks and can be used to automatically rebroadcast a pending transaction with a higher gas price.
+
+.. py:class:: brownie.network.gas.bases.TimeGasStrategy(duration=30)
+
+    Abstract base class for time-based gas strategies.
+
+    Time gas strategies are called every ``duration`` seconds and can be used to automatically rebroadcast a pending transaction with a higher gas price.
+
+Scaling Strategy Abstract Methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To implement a scaling strategy, subclass one of the above ABCs and implement the following generator function:
+
+.. py:method:: BlockGasStrategy.get_gas_price(self) -> Generator[int]:
+
+    Generator function that yields a new gas price each time it is called.
+
+    The produced generator is called every ``duration`` seconds while a transaction is still pending. Each call must yield a new gas price as an integer. If the newly yielded value is at least 10% higher than the current gas price, the transaction is rebroadcasted with the new gas price.
+
 ``brownie.network.state``
 =========================
 
